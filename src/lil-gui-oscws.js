@@ -4,9 +4,10 @@ let oscPort = null;
 let reconnectInterval = null;
 let guiVisible = true;
 let gui, controls = {};
-let debugLogEnabled = false; // Added flag for debug logging
+let debugLogEnabled = false;
 const showButton = document.createElement('div');
-let WebSocketPort;
+let initialParams = {};
+let WebSocketPort = null;
 
 function setupShowButton() {
     showButton.id = 'showButton';
@@ -51,20 +52,20 @@ function sendOSCMessage(parameter, value) {
                 args: [oscArg] // Ensure correct OSC message format
             };
 
-            console.log(`Attempting to send OSC message: ${JSON.stringify(message)}`);
+            logDebug(`Attempting to send OSC message: ${JSON.stringify(message)}`);
             
             try {
                 oscPort.send(message);
                 logDebug(`Sent OSC message: ${parameter} - ${oscArg.value}`);
             } catch (error) {
-                console.error(`Error sending OSC message for ${parameter}: ${error.message}`);
-                console.error(error.stack);
+                logError(`Error sending OSC message for ${parameter}: ${error.message}`);
+                logError(error.stack);
             }
         } else {
-            console.warn(`Skipping undefined or null value for parameter: ${parameter}`);
+            logDebug(`Skipping undefined or null value for parameter: ${parameter}`);
         }
     } else {
-        console.warn(`WebSocket not open. Cannot send message for parameter: ${parameter}`);
+        logDebug(`WebSocket not open. Cannot send message for parameter: ${parameter}`);
     }
 }
 
@@ -79,24 +80,28 @@ function updateParameter(obj, path, value) {
 }
 
 function handlePortUpdate(params) {
-    if (params.settings.value.websocket.value.status.value === 'Connected') {
+    if (params && params.lil_gui_oscws && params.lil_gui_oscws.value.websocket.value.status.value === 'Connected') {
         disconnectWebSocket(params);
         connectWebSocket(params);
     }
 }
 
 function handleDebugLogToggle(params) {
-    debugLogEnabled = params.settings.value.websocket.value.debugLog.value;
-    logDebug('Debug logging', debugLogEnabled ? 'enabled' : 'disabled');
+    if (params && params.lil_gui_oscws) {
+        debugLogEnabled = params.lil_gui_oscws.value.websocket.value.debugLog.value;
+        logDebug('Debug logging', debugLogEnabled ? 'enabled' : 'disabled');
+    }
 }
 
 function handleAutoReconnectToggle(params) {
-    if (params.settings.value.websocket.value.autoReconnect.value) {
-        if (params.settings.value.websocket.value.status.value === 'Disconnected') {
-            startAutoReconnect(params);
+    if (params && params.lil_gui_oscws) {
+        if (params.lil_gui_oscws.value.websocket.value.autoReconnect.value) {
+            if (params.lil_gui_oscws.value.websocket.value.status.value === 'Disconnected') {
+                startAutoReconnect(params);
+            }
+        } else {
+            stopAutoReconnect();
         }
-    } else {
-        stopAutoReconnect();
     }
 }
 
@@ -106,10 +111,16 @@ function logDebug(...args) {
     }
 }
 
+function logError(...args) {
+    if (debugLogEnabled) {
+        console.error(...args);
+    }
+}
+
 function startAutoReconnect(params) {
     if (!reconnectInterval) {
         reconnectInterval = setInterval(() => {
-            if (params.settings.value.websocket.value.status.value === 'Disconnected') {
+            if (params.lil_gui_oscws.value.websocket.value.status.value === 'Disconnected') {
                 logDebug('Attempting to reconnect WebSocket...');
                 connectWebSocket(params);
             }
@@ -141,22 +152,26 @@ export function connectWebSocket(params) {
     if (oscPort) {
         oscPort.close();
     }
+    if (!WebSocketPort) {
+        logError('WebSocketPort is not defined. Ensure osc.js library is loaded.');
+        return;
+    }
     oscPort = new WebSocketPort({
-        url: `ws://${params.settings.value.websocket.value.address.value}:${params.settings.value.websocket.value.port.value}`
+        url: `ws://${params.lil_gui_oscws.value.websocket.value.address.value}:${params.lil_gui_oscws.value.websocket.value.port.value}`
     });
 
     oscPort.open();
 
     oscPort.on("open", function () {
-        params.settings.value.websocket.value.status.value = 'Connected';
+        params.lil_gui_oscws.value.websocket.value.status.value = 'Connected';
         logDebug('WebSocket connected');
         stopAutoReconnect();
     });
 
     oscPort.on("close", function () {
-        params.settings.value.websocket.value.status.value = 'Disconnected';
+        params.lil_gui_oscws.value.websocket.value.status.value = 'Disconnected';
         logDebug('WebSocket disconnected');
-        if (params.settings.value.websocket.value.autoReconnect.value) {
+        if (params.lil_gui_oscws.value.websocket.value.autoReconnect.value) {
             startAutoReconnect(params);
         }
     });
@@ -183,7 +198,7 @@ export function disconnectWebSocket(params) {
     if (oscPort) {
         oscPort.close();
     }
-    params.settings.value.websocket.value.status.value = 'Disconnected';
+    params.lil_gui_oscws.value.websocket.value.status.value = 'Disconnected';
     logDebug('WebSocket disconnected');
     stopAutoReconnect();
 }
@@ -198,11 +213,11 @@ export function initializeGUI(appParams) {
     gui.domElement.style.overflowY = 'auto';
     gui.domElement.style.zIndex = '1000';
 
-    // Merge settings params with app params
+    setupShowButton(); // Set up the show button
+
     const settingsParams = getSettingsParams();
     const params = { ...settingsParams, ...appParams };
 
-    // Function to create GUI controls dynamically
     function createGUIControls(folder, obj, path) {
         for (const key in obj) {
             const param = obj[key];
@@ -217,16 +232,15 @@ export function initializeGUI(appParams) {
         }
     }
 
-    // Function to create individual control based on parameter metadata
     function createControl(folder, param, key, path, params) {
         let control;
-        if (param.type === 'number' || param.type === 'int') {
-            control = folder.add(param, 'value', param.min, param.max).name(key);
-            if (param.step !== undefined) {
-                control.step(param.step);
-            }
-            control.onChange(value => {
-                if (param.type === 'int') value = Math.round(value);
+        if (param.type === 'boolean') {
+            control = folder.add(param, 'value').name(key).onChange(value => {
+                sendOSCMessage(`${path}/${key}`, value);
+                if (param.onUpdate) param.onUpdate(value);
+            });
+        } else if (param.type === 'number') {
+            control = folder.add(param, 'value', param.min, param.max, param.step).name(key).onChange(value => {
                 sendOSCMessage(`${path}/${key}`, value);
                 if (param.onUpdate) param.onUpdate(value);
             });
@@ -235,34 +249,41 @@ export function initializeGUI(appParams) {
                 sendOSCMessage(`${path}/${key}`, value);
                 if (param.onUpdate) param.onUpdate(value);
             });
-        } else if (param.type === 'button') {
-            control = folder.add(param, 'value').name(key).onChange(() => {
-                param.value = false; // reset button state
-                if (param.onUpdate) param.onUpdate(params);
-            });
-        } else if (param.type === 'boolean') {
+        } else if (param.type === 'string') {
             control = folder.add(param, 'value').name(key).onChange(value => {
                 sendOSCMessage(`${path}/${key}`, value);
+                if (param.onUpdate) param.onUpdate(value);
+            });
+        } else if (param.type === 'button') {
+            control = folder.add(param, 'value').name(key).onChange(() => {
                 if (param.onUpdate) param.onUpdate(params);
             });
         } else if (param.type === 'label') {
             control = folder.add(param, 'value').name(key).listen();
-        } else if (param.type === 'string') {
-            control = folder.add(param, 'value').name(key).onFinishChange(value => {
+        } else {
+            control = folder.add(param, 'value').name(key).onChange(value => {
                 sendOSCMessage(`${path}/${key}`, value);
                 if (param.onUpdate) param.onUpdate(value);
             });
         }
+
+        if (param.onUpdate) {
+            control.__onUpdate = param.onUpdate;
+        }
+
         return control;
     }
 
     createGUIControls(gui, params, '');
 
-    // Setup the show button
-    setupShowButton();
+    initialParams = JSON.parse(JSON.stringify(params));
+    saveSettingsAsPreset('factoryDefault');
 
-    // Save params for later use in save/reload/reset functions
-    window.guiParams = params;
+    if (localStorage.getItem('appSettings')) {
+        reloadSettings();
+    } else {
+        saveSettings();
+    }
 }
 
 export function initializeWebSocket() {
@@ -272,11 +293,14 @@ export function initializeWebSocket() {
 
     oscScript.onload = () => {
         WebSocketPort = osc.WebSocketPort;
-        connectWebSocket(getSettingsParams()); // Added to ensure WebSocket is initialized after script is loaded
+        if (WebSocketPort) {
+            connectWebSocket(getSettingsParams());
+        } else {
+            logError('WebSocketPort is not defined after loading osc.js.');
+        }
     };
 }
 
-// New dumpParameters function
 function dumpParameters(params, path = '') {
     for (const key in params) {
         if (params.hasOwnProperty(key)) {
@@ -289,88 +313,79 @@ function dumpParameters(params, path = '') {
                     sendOSCMessage(currentPath, param.value);
                     logDebug(`Dumping parameter: ${currentPath} - ${param.value}`);
                 } catch (error) {
-                    console.error(`Error dumping parameter: ${currentPath} - ${param.value}`);
-                    console.error(error.message);
-                    console.error(error.stack);
+                    logError(`Error dumping parameter: ${currentPath} - ${param.value}`);
+                    logError(error.message);
+                    logError(error.stack);
                 }
             }
         }
     }
 }
 
-// Function to save settings to local storage
 function saveSettings() {
-    const settings = JSON.stringify(window.guiParams);
-    localStorage.setItem('appSettings', settings);
-    if (debugLogEnabled) {
-        console.log('Settings saved:', settings);
-    }
+    const settings = gui.save();
+    localStorage.setItem('appSettings', JSON.stringify(settings));
+    logDebug('Settings saved:', settings);
 }
 
-// Function to reload settings from local storage
+function saveSettingsAsPreset(presetName) {
+    const settings = gui.save();
+    localStorage.setItem(presetName, JSON.stringify(settings));
+    logDebug(`Preset ${presetName} saved:`, settings);
+}
+
 function reloadSettings() {
     const settings = localStorage.getItem('appSettings');
     if (settings) {
         const parsedSettings = JSON.parse(settings);
-        applySettings(window.guiParams, parsedSettings);
-        if (debugLogEnabled) {
-            console.log('Settings reloaded:', parsedSettings);
-        }
+        gui.load(parsedSettings);
+        logDebug('Settings reloaded:', parsedSettings);
     } else {
-        console.warn('No settings found in local storage');
+        logDebug('No settings found in local storage');
     }
 }
 
-// Function to reset settings to default
 function resetSettings() {
-    const defaultParams = getDefaultParams();
-    applySettings(window.guiParams, defaultParams);
-    if (debugLogEnabled) {
-        console.log('Settings reset to default:', defaultParams);
+    const factoryDefaultSettings = localStorage.getItem('factoryDefault');
+    if (factoryDefaultSettings) {
+        const parsedSettings = JSON.parse(factoryDefaultSettings);
+        restoreParameters(window.guiParams, window.initialParams);
+        gui.load(parsedSettings);
+        logDebug('Settings reset to factory default:', parsedSettings);
+    } else {
+        logDebug('No factory default settings found');
     }
 }
 
-// Function to apply settings
-function applySettings(currentSettings, newSettings) {
-    for (const key in newSettings) {
-        if (newSettings.hasOwnProperty(key)) {
-            if (typeof newSettings[key] === 'object' && newSettings[key] !== null && !Array.isArray(newSettings[key])) {
-                applySettings(currentSettings[key].value, newSettings[key].value);
-            } else {
-                currentSettings[key].value = newSettings[key];
-                if (currentSettings[key].onUpdate) {
-                    currentSettings[key].onUpdate(newSettings[key]);
+function restoreParameters(target, source) {
+    const stack = [{ target, source }];
+
+    while (stack.length > 0) {
+        const { target, source } = stack.pop();
+
+        for (const key in source) {
+            if (source.hasOwnProperty(key)) {
+                if (source[key].type === 'folder') {
+                    stack.push({ target: target[key].value, source: source[key].value });
+                } else {
+                    target[key].value = source[key].value;
+                    if (target[key].onUpdate) target[key].onUpdate(source[key].value);
                 }
-                sendOSCMessage(key, newSettings[key]);
             }
         }
     }
 }
 
-// Function to get default parameters (mimics the initial appParams in the HTML file)
-function getDefaultParams() {
-    return {
-        sides: { value: 3, min: 3, max: 12, step: 1, type: 'int', onUpdate: window.drawPolygon },
-        color: { value: '#ff0000', type: 'color', onUpdate: window.drawPolygon },
-        size: { value: 100, min: 10, max: 300, type: 'number', onUpdate: window.drawPolygon },
-        transform: {
-            value: {
-                rotation: { value: 0, min: 0, max: 360, step: 1, type: 'number', onUpdate: window.drawPolygon },
-                position_x: { value: 0, min: -300, max: 300, step: 1, type: 'number', onUpdate: window.drawPolygon },
-                position_y: { value: 0, min: -300, max: 300, step: 1, type: 'number', onUpdate: window.drawPolygon }
-            },
-            type: 'folder'
-        }
-    };
-}
-
 function getSettingsParams() {
     return {
-        settings: {
+        lil_gui_oscws: {
             value: {
                 gui: {
                     value: {
-                        hide: { value: false, type: 'button', onUpdate: toggleGUIVisibility }
+                        hide: { value: false, type: 'button', onUpdate: toggleGUIVisibility, save: false },
+                        save: { value: false, type: 'button', onUpdate: saveSettings, save: false },
+                        reload: { value: false, type: 'button', onUpdate: reloadSettings, save: false },
+                        reset: { value: false, type: 'button', onUpdate: resetSettings, save: false }
                     },
                     type: 'folder'
                 },
@@ -378,12 +393,9 @@ function getSettingsParams() {
                     value: {
                         address: { value: '127.0.0.1', type: 'string' },
                         port: { value: 8080, min: 1024, max: 65535, step: 1, type: 'int' },
-                        connect: { value: false, type: 'button', onUpdate: (params) => connectWebSocket(params) },
-                        disconnect: { value: false, type: 'button', onUpdate: (params) => disconnectWebSocket(params) },
-                        dump: { value: false, type: 'button', onUpdate: (params) => dumpParameters(params) },
-                        save: { value: false, type: 'button', onUpdate: (params) => saveSettings() }, // Added save button
-                        reload: { value: false, type: 'button', onUpdate: (params) => reloadSettings() }, // Added reload button
-                        reset: { value: false, type: 'button', onUpdate: (params) => resetSettings() }, // Added reset button
+                        connect: { value: false, type: 'button', onUpdate: (params) => connectWebSocket(params), save: false },
+                        disconnect: { value: false, type: 'button', onUpdate: (params) => disconnectWebSocket(params), save: false },
+                        dump: { value: false, type: 'button', onUpdate: (params) => dumpParameters(params), save: false },
                         debugLog: { value: false, type: 'boolean', onUpdate: (params) => handleDebugLogToggle(params) },
                         autoReconnect: { value: false, type: 'boolean', onUpdate: (params) => handleAutoReconnectToggle(params) },
                         status: { value: 'Disconnected', type: 'label' }
