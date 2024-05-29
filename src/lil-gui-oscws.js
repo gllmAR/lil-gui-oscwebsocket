@@ -258,7 +258,7 @@ export function initializeGUI(appParams) {
         if (param.type === 'boolean') {
             control = folder.add(param, 'value').name(key).onChange(value => {
                 sendOSCMessage(`${path}/${key}`, value);
-                if (param.onUpdate) param.onUpdate(value);
+                if (param.onUpdate) param.onUpdate(params);
             });
         } else if (param.type === 'number') {
             control = folder.add(param, 'value', param.min, param.max, param.step).name(key).onChange(value => {
