@@ -1,6 +1,6 @@
 # lil-gui-oscwebsocket
 
-lil-gui-oscws.js
+[lil-gui-oscws.js](https://gllmar.github.io/lil-gui-oscwebsocket/#/)
 
 lil-gui-oscwebsocket bridge lil-gui to oscwebsocket (lil-gui &lt;-> osc.js)
 
