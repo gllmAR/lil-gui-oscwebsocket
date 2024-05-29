@@ -35,7 +35,7 @@ function setupShowButton() {
     showButton.style.top = '5px';
     showButton.style.right = '5px';
     showButton.style.padding = '5px 10px';
-    showButton.style.borderRadius =  "5px"
+    showButton.style.borderRadius = "5px";
     showButton.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
     showButton.style.color = 'white';
     showButton.style.border = '1px dotted white';
@@ -115,7 +115,6 @@ function handleDebugLogToggle(params) {
 
 function handleAutoReconnectToggle(params) {
     if (params && params.lil_gui_oscws) {
-        console.log("here")
         if (params.lil_gui_oscws.value.websocket.value.autoReconnect.value) {
             if (params.lil_gui_oscws.value.websocket.value.status.value === 'Disconnected') {
                 startAutoReconnect(params);
@@ -339,13 +338,13 @@ function dumpParameters(params, path = '') {
 }
 
 function saveSettings() {
-    const settings = gui.save();
+    const settings = filterSettingsForSave(gui.save());
     localStorage.setItem('appSettings', JSON.stringify(settings));
     logDebug('Settings saved:', settings);
 }
 
 function saveSettingsAsPreset(presetName) {
-    const settings = gui.save();
+    const settings = filterSettingsForSave(gui.save());
     localStorage.setItem(presetName, JSON.stringify(settings));
     logDebug(`Preset ${presetName} saved:`, settings);
 }
@@ -392,6 +391,21 @@ function restoreParameters(target, source) {
     }
 }
 
+function filterSettingsForSave(settings) {
+    const filteredSettings = JSON.parse(JSON.stringify(settings));
+    function removeUnwantedSaveParams(obj) {
+        for (const key in obj) {
+            if (obj[key].type === 'folder') {
+                removeUnwantedSaveParams(obj[key].value);
+            } else if (obj[key].save === false) {
+                delete obj[key];
+            }
+        }
+    }
+    removeUnwantedSaveParams(filteredSettings);
+    return filteredSettings;
+}
+
 function getSettingsParams() {
     return {
         lil_gui_oscws: {
@@ -415,7 +429,7 @@ function getSettingsParams() {
                         dump: { value: false, type: 'button', onUpdate: (params) => dumpParameters(params), save: false },
                         debugLog: { value: false, type: 'boolean', onUpdate: (params) => handleDebugLogToggle(params) },
                         autoReconnect: { value: false, type: 'boolean', onUpdate: (params) => handleAutoReconnectToggle(params) },
-                        status: { value: 'Disconnected', type: 'label' },
+                        status: { value: 'Disconnected', type: 'label', save: false },
                         autoConnect: { value: false, type: 'boolean' } // New toggle for auto-connect
                     },
                     type: 'folder'
