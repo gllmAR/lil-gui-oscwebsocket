@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSC WebSocket polygone Demo</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            border: 1px solid black;
+            max-width: 100%;
+            height: auto;
+        }
+
+        #drawingCanvas {
+            width: 100%;
+            height: 100%;
+            max-width: 600px;
+            max-height: 600px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="drawingCanvas"></canvas>
+    <script type="module">
+        import { initializeGUI, initializeWebSocket } from '../src/lil-gui-oscws.js';
+
+        const appParams = {
+            sides: { value: 3, min: 3, max: 12, step: 1, type: 'int', onUpdate: drawPolygon },
+            color: { value: '#ff0000', type: 'color', onUpdate: drawPolygon },
+            size: { value: 100, min: 10, max: 300, type: 'number', onUpdate: drawPolygon },
+            transform: {
+                value: {
+                    rotation: { value: 0, min: 0, max: 360, step: 1, type: 'number', onUpdate: drawPolygon },
+                    position_x: { value: 0, min: -300, max: 300, step: 1, type: 'number', onUpdate: drawPolygon },
+                    position_y: { value: 0, min: -300, max: 300, step: 1, type: 'number', onUpdate: drawPolygon }
+                },
+                type: 'folder'
+            }
+        };
+
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function drawPolygon() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            const angle = (Math.PI * 2) / appParams.sides.value;
+            const centerX = canvas.width / 2 + appParams.transform.value.position_x.value;
+            const centerY = canvas.height / 2 + appParams.transform.value.position_y.value;
+            ctx.moveTo(
+                centerX + appParams.size.value * Math.cos(appParams.transform.value.rotation.value * Math.PI / 180),
+                centerY + appParams.size.value * Math.sin(appParams.transform.value.rotation.value * Math.PI / 180)
+            );
+            for (let i = 1; i <= appParams.sides.value; i++) {
+                ctx.lineTo(
+                    centerX + appParams.size.value * Math.cos(angle * i + appParams.transform.value.rotation.value * Math.PI / 180),
+                    centerY + appParams.size.value * Math.sin(angle * i + appParams.transform.value.rotation.value * Math.PI / 180)
+                );
+            }
+            ctx.closePath();
+            ctx.fillStyle = appParams.color.value;
+            ctx.fill();
+        }
+
+        drawPolygon();
+
+        // Initialize WebSocket script and GUI with app parameters
+        initializeWebSocket();
+        initializeGUI(appParams);
+
+        window.addEventListener('resize', () => {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+            drawPolygon();
+        });
+
+        // Set canvas dimensions initially
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+    </script>
+</body>
+</html>
