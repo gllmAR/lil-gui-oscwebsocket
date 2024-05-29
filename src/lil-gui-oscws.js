@@ -408,7 +408,7 @@ function getSettingsParams() {
                 websocket: {
                     value: {
                         address: { value: '127.0.0.1', type: 'string' },
-                        port: { value: 8080, min: 1024, max: 65535, step: 1, type: 'int' },
+                        port: { value: 8080, min: 1024, max: 65535, step: 1, type: 'number' },
                         connect: { value: false, type: 'button', onUpdate: (params) => connectWebSocket(params), save: false },
                         disconnect: { value: false, type: 'button', onUpdate: (params) => disconnectWebSocket(params), save: false },
                         dump: { value: false, type: 'button', onUpdate: (params) => dumpParameters(params), save: false },

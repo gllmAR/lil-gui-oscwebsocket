@@ -36,7 +36,7 @@
         import { initializeGUI, initializeWebSocket } from '../src/lil-gui-oscws.js';
 
         const appParams = {
-            sides: { value: 3, min: 3, max: 12, step: 1, type: 'int', onUpdate: drawPolygon },
+            sides: { value: 3, min: 3, max: 12, step: 1, type: 'number', onUpdate: drawPolygon },
             color: { value: '#ff0000', type: 'color', onUpdate: drawPolygon },
             size: { value: 100, min: 10, max: 300, type: 'number', onUpdate: drawPolygon },
             transform: {
