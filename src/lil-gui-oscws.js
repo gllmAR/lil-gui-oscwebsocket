@@ -1,7 +1,6 @@
 import { GUI } from 'https://cdn.jsdelivr.net/npm/lil-gui@0.19.2/+esm';
 
 export function initializeWebSocket() {
-    // need to be exported this way since module don't seem to have default export
     const oscScript = document.createElement('script');
     oscScript.src = 'https://cdn.jsdelivr.net/npm/osc/dist/osc-browser.min.js';
     document.head.appendChild(oscScript);
@@ -10,7 +9,6 @@ export function initializeWebSocket() {
         WebSocketPort = osc.WebSocketPort;
         if (WebSocketPort) {
             const params = getSettingsParams();
-            // Check for auto-connect setting and apply if true
             if (params.lil_gui_oscws.value.websocket.value.autoConnect.value) {
                 logDebug('Auto-connect enabled. Attempting to connect WebSocket...');
                 connectWebSocket(params);
@@ -279,6 +277,11 @@ export function initializeGUI(appParams) {
         } else if (param.type === 'button') {
             control = folder.add(param, 'value').name(key).onChange(() => {
                 if (param.onUpdate) param.onUpdate(params);
+                // Reset value to zero to simulate button behavior
+                setTimeout(() => {
+                    param.value = 0;
+                    control.updateDisplay();
+                }, 100);
             });
         } else if (param.type === 'label') {
             control = folder.add(param, 'value').name(key).listen();
@@ -288,13 +291,14 @@ export function initializeGUI(appParams) {
                 if (param.onUpdate) param.onUpdate(value);
             });
         }
-
+    
         if (param.onUpdate) {
             control.__onUpdate = param.onUpdate;
         }
-
+    
         return control;
     }
+    
 
     createGUIControls(gui, params, '');
 
@@ -307,7 +311,6 @@ export function initializeGUI(appParams) {
         saveSettings();
     }
 
-    // Check for auto-hide setting and apply if true
     if (params.lil_gui_oscws.value.gui.value.autoHide.value) {
         toggleGUIVisibility();
     }
