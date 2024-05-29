@@ -1,5 +1,26 @@
 import { GUI } from 'https://cdn.jsdelivr.net/npm/lil-gui@0.19.2/+esm';
 
+export function initializeWebSocket() {
+    // need to be exported this way since module don't seem to have default export
+    const oscScript = document.createElement('script');
+    oscScript.src = 'https://cdn.jsdelivr.net/npm/osc/dist/osc-browser.min.js';
+    document.head.appendChild(oscScript);
+
+    oscScript.onload = () => {
+        WebSocketPort = osc.WebSocketPort;
+        if (WebSocketPort) {
+            const params = getSettingsParams();
+            // Check for auto-connect setting and apply if true
+            if (params.lil_gui_oscws.value.websocket.value.autoConnect.value) {
+                logDebug('Auto-connect enabled. Attempting to connect WebSocket...');
+                connectWebSocket(params);
+            }
+        } else {
+            logError('WebSocketPort is not defined after loading osc.js.');
+        }
+    };
+}
+
 let oscPort = null;
 let reconnectInterval = null;
 let guiVisible = true;
@@ -11,11 +32,12 @@ let WebSocketPort = null;
 
 function setupShowButton() {
     showButton.id = 'showButton';
-    showButton.innerText = 'Show';
+    showButton.innerText = '...';
     showButton.style.position = 'fixed';
-    showButton.style.top = '10px';
-    showButton.style.right = '10px';
+    showButton.style.top = '5px';
+    showButton.style.right = '5px';
     showButton.style.padding = '5px 10px';
+    showButton.style.borderRadius =  "5px"
     showButton.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
     showButton.style.color = 'white';
     showButton.style.border = '1px dotted white';
@@ -124,7 +146,7 @@ function startAutoReconnect(params) {
                 logDebug('Attempting to reconnect WebSocket...');
                 connectWebSocket(params);
             }
-        }, 5000); // Added a delay to prevent continuous reconnection attempts
+        }, 1000); 
     }
 }
 
@@ -289,26 +311,6 @@ export function initializeGUI(appParams) {
     if (params.lil_gui_oscws.value.gui.value.autoHide.value) {
         toggleGUIVisibility();
     }
-}
-
-export function initializeWebSocket() {
-    const oscScript = document.createElement('script');
-    oscScript.src = 'https://cdn.jsdelivr.net/npm/osc/dist/osc-browser.min.js';
-    document.head.appendChild(oscScript);
-
-    oscScript.onload = () => {
-        WebSocketPort = osc.WebSocketPort;
-        if (WebSocketPort) {
-            const params = getSettingsParams();
-            // Check for auto-connect setting and apply if true
-            if (params.lil_gui_oscws.value.websocket.value.autoConnect.value) {
-                logDebug('Auto-connect enabled. Attempting to connect WebSocket...');
-                connectWebSocket(params);
-            }
-        } else {
-            logError('WebSocketPort is not defined after loading osc.js.');
-        }
-    };
 }
 
 function dumpParameters(params, path = '') {
