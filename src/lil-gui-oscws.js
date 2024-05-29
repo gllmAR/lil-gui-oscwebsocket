@@ -107,14 +107,15 @@ function handlePortUpdate(params) {
 }
 
 function handleDebugLogToggle(params) {
-    if (params && params.lil_gui_oscws) {
-        debugLogEnabled = params.lil_gui_oscws.value.websocket.value.debugLog.value;
+    if (params){
+        debugLogEnabled = params;
         logDebug('Debug logging', debugLogEnabled ? 'enabled' : 'disabled');
-    }
+    } 
 }
 
 function handleAutoReconnectToggle(params) {
     if (params && params.lil_gui_oscws) {
+        console.log("here")
         if (params.lil_gui_oscws.value.websocket.value.autoReconnect.value) {
             if (params.lil_gui_oscws.value.websocket.value.status.value === 'Disconnected') {
                 startAutoReconnect(params);
