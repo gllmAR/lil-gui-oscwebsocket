@@ -284,6 +284,11 @@ export function initializeGUI(appParams) {
     } else {
         saveSettings();
     }
+
+    // Check for auto-hide setting and apply if true
+    if (params.lil_gui_oscws.value.gui.value.autoHide.value) {
+        toggleGUIVisibility();
+    }
 }
 
 export function initializeWebSocket() {
@@ -294,7 +299,12 @@ export function initializeWebSocket() {
     oscScript.onload = () => {
         WebSocketPort = osc.WebSocketPort;
         if (WebSocketPort) {
-            connectWebSocket(getSettingsParams());
+            const params = getSettingsParams();
+            // Check for auto-connect setting and apply if true
+            if (params.lil_gui_oscws.value.websocket.value.autoConnect.value) {
+                logDebug('Auto-connect enabled. Attempting to connect WebSocket...');
+                connectWebSocket(params);
+            }
         } else {
             logError('WebSocketPort is not defined after loading osc.js.');
         }
@@ -385,7 +395,8 @@ function getSettingsParams() {
                         hide: { value: false, type: 'button', onUpdate: toggleGUIVisibility, save: false },
                         save: { value: false, type: 'button', onUpdate: saveSettings, save: false },
                         reload: { value: false, type: 'button', onUpdate: reloadSettings, save: false },
-                        reset: { value: false, type: 'button', onUpdate: resetSettings, save: false }
+                        reset: { value: false, type: 'button', onUpdate: resetSettings, save: false },
+                        autoHide: { value: false, type: 'boolean' } // New toggle for auto-hide
                     },
                     type: 'folder'
                 },
@@ -398,7 +409,8 @@ function getSettingsParams() {
                         dump: { value: false, type: 'button', onUpdate: (params) => dumpParameters(params), save: false },
                         debugLog: { value: false, type: 'boolean', onUpdate: (params) => handleDebugLogToggle(params) },
                         autoReconnect: { value: false, type: 'boolean', onUpdate: (params) => handleAutoReconnectToggle(params) },
-                        status: { value: 'Disconnected', type: 'label' }
+                        status: { value: 'Disconnected', type: 'label' },
+                        autoConnect: { value: false, type: 'boolean' } // New toggle for auto-connect
                     },
                     type: 'folder'
                 }
