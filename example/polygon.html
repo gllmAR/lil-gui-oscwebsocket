@@ -73,11 +73,14 @@
             ctx.fill();
         }
 
-        drawPolygon();
+        // Set canvas dimensions initially
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
 
         // Initialize WebSocket script and GUI with app parameters
-        initializeWebSocket();
         initializeGUI(appParams);
+        initializeWebSocket();
+        drawPolygon();
 
         window.addEventListener('resize', () => {
             canvas.width = canvas.clientWidth;
@@ -85,9 +88,7 @@
             drawPolygon();
         });
 
-        // Set canvas dimensions initially
-        canvas.width = canvas.clientWidth;
-        canvas.height = canvas.clientHeight;
+
     </script>
 </body>
 </html>
