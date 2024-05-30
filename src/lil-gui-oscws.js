@@ -23,7 +23,7 @@ let oscPort = null;
 let reconnectInterval = null;
 let guiVisible = true;
 let gui, controls = {};
-let debugLogEnabled = false;
+let debugLogEnabled = true;
 const showButton = document.createElement('div');
 let initialParams = {};
 let WebSocketPort = null;
@@ -305,11 +305,7 @@ export function initializeGUI(appParams) {
     initialParams = JSON.parse(JSON.stringify(params));
     saveSettingsAsPreset('factoryDefault');
 
-    if (localStorage.getItem('appSettings')) {
-        reloadSettings();
-    } else {
-        saveSettings();
-    }
+    loadSettingsAsPreset("appSettings")
 
     if (params.lil_gui_oscws.value.gui.value.autoHide.value) {
         toggleGUIVisibility();
@@ -338,9 +334,7 @@ function dumpParameters(params, path = '') {
 }
 
 function saveSettings() {
-    const settings = filterSettingsForSave(gui.save());
-    localStorage.setItem('appSettings', JSON.stringify(settings));
-    logDebug('Settings saved:', settings);
+    saveSettingsAsPreset("appSettings");
 }
 
 function saveSettingsAsPreset(presetName) {
@@ -349,8 +343,8 @@ function saveSettingsAsPreset(presetName) {
     logDebug(`Preset ${presetName} saved:`, settings);
 }
 
-function reloadSettings() {
-    const settings = localStorage.getItem('appSettings');
+function loadSettingsAsPreset(presetName) {
+    const settings = localStorage.getItem(presetName);
     if (settings) {
         const parsedSettings = JSON.parse(settings);
         gui.load(parsedSettings);
@@ -358,6 +352,11 @@ function reloadSettings() {
     } else {
         logDebug('No settings found in local storage');
     }
+}
+
+
+function reloadSettings() {
+    loadSettingsAsPreset("appSettings")
 }
 
 function resetSettings() {
